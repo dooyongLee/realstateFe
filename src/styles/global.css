@@ -470,6 +470,20 @@ html, body, #root {
 .search-bar-btn:hover {
   background: var(--primary-dark);
 }
+.search-bar-select {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+  transition: border 0.2s;
+  margin-left: 8px;
+}
+.search-bar-select:focus {
+  border: 1.5px solid var(--primary);
+}
 .data-grid-wrapper {
   width: 100%;
   overflow-x: auto;

@@ -2,6 +2,7 @@ import React from "react";
 
 const SearchBar = ({ keyword, onKeywordChange, onSearch, children }) => (
   <form className="search-bar" onSubmit={e => { e.preventDefault(); onSearch && onSearch(); }}>
+    {children}
     <input
       className="search-bar-input"
       type="text"
@@ -9,7 +10,6 @@ const SearchBar = ({ keyword, onKeywordChange, onSearch, children }) => (
       value={keyword}
       onChange={e => onKeywordChange(e.target.value)}
     />
-    {children}
     <button className="search-bar-btn" type="submit">검색</button>
   </form>
 );

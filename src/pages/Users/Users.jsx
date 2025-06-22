@@ -13,21 +13,50 @@ const columns = [
 ];
 
 const PAGE_SIZE = 10;
+const ROLE_OPTIONS = [
+  { value: "", label: "전체" },
+  { value: "ADMIN", label: "관리자" },
+  { value: "USER", label: "회원" },
+];
+const SUBROLE_OPTIONS = {
+  ADMIN: [
+    { value: "AGENT", label: "중개사" },
+    { value: "AGENT_LEADER", label: "중개사장" },
+  ],
+  USER: [
+    { value: "LANDLORD", label: "임대인" },
+    { value: "TENANT", label: "임차인" },
+  ],
+};
+const SEARCH_TYPE_OPTIONS = [
+  { value: "", label: "전체" },
+  { value: "name", label: "이름" },
+  { value: "email", label: "이메일" },
+];
 
 const Users = () => {
+  const [role, setRole] = useState("");
+  const [subRole, setSubRole] = useState("");
+  const [searchType, setSearchType] = useState("name");
   const [keyword, setKeyword] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [total, setTotal] = useState(0);
 
   const fetchUsers = async (pageArg = page) => {
     setLoading(true);
     try {
-      // 실제 API에 맞게 쿼리 파라미터 등 수정
-      const res = await apiClient.get("/api/users", { params: { keyword, page: pageArg, size: PAGE_SIZE } });
-      setUsers(res.data.data?.list || []);
-      setTotal(res.data.data?.total || 0);
+      const params = { page: pageArg - 1, size: PAGE_SIZE, role };
+      if (role && subRole) params.subRole = subRole;
+      if (searchType && keyword) params[searchType] = keyword;
+      const res = await apiClient.get("/api/users/page", { params });
+      const d = res.data.data;
+      setUsers(d.content || []);
+      setPage((d.page || 0) + 1);
+      setPageSize(d.size || PAGE_SIZE);
+      setTotal(d.totalElements || 0);
     } catch {
       setUsers([]);
       setTotal(0);
@@ -46,6 +75,8 @@ const Users = () => {
     fetchUsers(p);
   };
 
+  useEffect(() => { setSubRole(""); }, [role]);
+
   return (
     <AdminMainLayout
       title="회원관리"
@@ -56,7 +87,40 @@ const Users = () => {
         keyword={keyword}
         onKeywordChange={setKeyword}
         onSearch={() => { setPage(1); fetchUsers(1); }}
-      />
+      >
+        <select
+          className="search-bar-select"
+          value={role}
+          onChange={e => setRole(e.target.value)}
+        >
+          {ROLE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        {role && SUBROLE_OPTIONS[role] && (
+          <select
+            className="search-bar-select"
+            value={subRole}
+            onChange={e => setSubRole(e.target.value)}
+            style={{ marginLeft: 8 }}
+          >
+            <option value="">하위 역할 전체</option>
+            {SUBROLE_OPTIONS[role].map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        )}
+        <select
+          className="search-bar-select"
+          value={searchType}
+          onChange={e => setSearchType(e.target.value)}
+          style={{ marginLeft: 8 }}
+        >
+          {SEARCH_TYPE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </SearchBar>
       <DataGrid
         columns={columns}
         rows={users}
@@ -64,7 +128,7 @@ const Users = () => {
         emptyText="회원이 없습니다."
         onRowClick={user => alert(user.name + ' 상세보기')}
         page={page}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
         total={total}
         onPageChange={handlePageChange}
       />

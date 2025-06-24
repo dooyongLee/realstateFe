@@ -12,7 +12,7 @@ const menu = [
 const Sidebar = ({ open, onClose }) => (
   <>
     {/* 모바일 오버레이 */}
-    {/* {open && <div className="sidebar-overlay" onClick={onClose} />} */}
+    {open && <div className="sidebar-overlay" onClick={onClose} />}
     <nav>
       <ul className="sidebar-menu">
         {menu.map((item) => (

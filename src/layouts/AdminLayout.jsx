@@ -13,7 +13,7 @@ const AdminLayout = ({ children, user, onLogout }) => {
       </header>
       <div className="admin-body">
         <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
-          <Sidebar />
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         </aside>
         <main className="admin-main">
           {children}

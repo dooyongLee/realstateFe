@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 function downloadExcel(columns, rows, fileName = "data.xlsx") {
   // 간단한 엑셀(CSV) 다운로드 구현
   const header = columns.map(col => col.label).join(",");
-  const body = rows.map(row => columns.map(col => row[col.key]).join(",")).join("\n");
+  const body = rows.map(row => columns.map(col => {
+    const value = row[col.key];
+    return col.render ? col.render(value, row) : value;
+  }).join(",")).join("\n");
   const csv = [header, body].join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
@@ -36,39 +39,100 @@ function Pagination({ page, pageSize, total, onPageChange }) {
   );
 }
 
-const DataGrid = ({ columns, rows, loading, emptyText, onRowClick, actions, page, pageSize, total, onPageChange }) => {
-  const [checked, setChecked] = useState([]);
-  const allChecked = rows.length > 0 && checked.length === rows.length;
-
-  const toggleAll = () => {
-    setChecked(allChecked ? [] : rows.map(r => r.id));
-  };
-  const toggleOne = (id) => {
-    setChecked(checked.includes(id) ? checked.filter(cid => cid !== id) : [...checked, id]);
+const DataGrid = ({ 
+  columns, 
+  rows, 
+  loading, 
+  emptyText, 
+  onRowClick, 
+  actions, 
+  page, 
+  pageSize, 
+  total, 
+  onPageChange,
+  onPageSizeChange
+}) => {
+  // 셀 렌더링 함수
+  const renderCell = (col, row) => {
+    const value = row[col.key];
+    if (col.render) {
+      const rendered = col.render(value, row);
+      // HTML 문자열인 경우 dangerouslySetInnerHTML 사용
+      if (typeof rendered === 'string' && rendered.includes('<')) {
+        return <span dangerouslySetInnerHTML={{ __html: rendered }} />;
+      }
+      return rendered;
+    }
+    return value;
   };
 
   return (
     <div className="data-grid-wrapper">
       <div className="data-grid-actions">
-        {actions}
-        <button className="data-grid-excel" onClick={() => downloadExcel(columns, rows)}>엑셀 다운로드</button>
+        <div className="data-grid-actions-left">
+          {actions}
+        </div>
+        <div className="data-grid-actions-right">
+          {/* 페이지당 데이터 개수 선택 */}
+          <div className="page-size-selector">
+            <select
+              id="pageSize"
+              value={pageSize}
+              onChange={(e) => onPageSizeChange && onPageSizeChange(Number(e.target.value))}
+              className="page-size-select"
+            >
+              <option value={10}>10개씩 보기</option>
+              <option value={20}>20개씩 보기</option>
+              <option value={50}>50개씩 보기</option>
+              <option value={100}>100개씩 보기</option>
+            </select>
+          </div>
+          
+        </div>
       </div>
       <table className="data-grid">
         <thead>
           <tr>
-            <th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
+            <th key="number-col" style={{ textAlign: 'center' }}>번호</th>
             {columns.map(col => <th key={col.key}>{col.label}</th>)}
-          </tr>
+            </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={columns.length + 1} className="data-grid-loading">로딩중...</td></tr>
+            <tr key="loading">
+              <td colSpan={columns.length + 1} className="data-grid-loading">
+                로딩중...
+              </td>
+            </tr>
           ) : rows.length === 0 ? (
-            <tr><td colSpan={columns.length + 1} className="data-grid-empty">{emptyText || "데이터가 없습니다."}</td></tr>
-          ) : rows.map(row => (
-            <tr key={row.id} onClick={() => onRowClick && onRowClick(row)} className={onRowClick ? "data-grid-row-clickable" : ""}>
-              <td><input type="checkbox" checked={checked.includes(row.id)} onChange={e => { e.stopPropagation(); toggleOne(row.id); }} /></td>
-              {columns.map(col => <td key={col.key}>{row[col.key]}</td>)}
+            <tr key="empty">
+              <td colSpan={columns.length + 1} className="data-grid-empty">
+                {emptyText || "데이터가 없습니다."}
+              </td>
+            </tr>
+          ) : rows.map((row, rowIdx) => (
+            <tr
+              key={row.id}
+              data-user-id={row.id}
+              className={onRowClick ? "data-grid-row-clickable" : ""}
+            >
+              <td key={`number_${row.id}`}>{total - ((page - 1) * pageSize + rowIdx)}</td>
+              {columns.map((col, colIdx) => {
+                // 상태 컬럼(td)만 클릭 이벤트 분리
+                if (col.key === 'enabled') {
+                  return (
+                    <td key={col.key + '_' + row.id} onClick={e => e.stopPropagation()}>
+                      {renderCell(col, row)}
+                    </td>
+                  );
+                }
+                // 나머지 컬럼(td) 클릭 시 상세 모달
+                return (
+                  <td key={col.key + '_' + row.id} onClick={() => onRowClick && onRowClick(row)}>
+                    {renderCell(col, row)}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

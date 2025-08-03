@@ -1,5 +1,8 @@
 import React from "react";
+import PropertyList from "./PropertyList";
 
-const Properties = () => <div>매물관리 페이지입니다.</div>;
+const Properties = () => {
+  return <PropertyList />;
+};
 
 export default Properties; 

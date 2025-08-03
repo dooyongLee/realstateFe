@@ -1,5 +1,12 @@
 import React from "react";
 
-const Settings = () => <div>설정 페이지입니다.</div>;
+function Settings() {
+  return (
+    <div>
+      <h2>설정</h2>
+      {/* 설정 항목을 여기에 추가하세요 */}
+    </div>
+  );
+}
 
 export default Settings; 

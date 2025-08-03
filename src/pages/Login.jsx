@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../App";
 import { FiMail, FiLock, FiAlertCircle, FiEye, FiEyeOff } from "react-icons/fi";
-import logo from "../assets/react.svg"; // 로고 예시, 실제 로고로 교체 가능
+import logo from "../assets/goodreal.png"; // 로고 예시, 실제 로고로 교체 가능
 
 const EMAIL_KEY = "login_email";
 const EMAIL_SAVE_KEY = "login_email_save";
@@ -57,7 +57,9 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    console.log("입력된 패스워드:", form.password);
     try {
+      console.log("서버로 전송되는 패스워드:", form.password);
       const res = await apiClient.post("/api/auth/login", {
         email: form.email,
         password: form.password,
@@ -107,8 +109,8 @@ const Login = () => {
     <div className="login-page">
       <div className="login-box">
         <div className="login-logo">
-          <img src={logo} alt="Real Estate Admin" />
-          <span>Real Estate Admin</span>
+          <img src={logo} alt="Good Real Admin" />
+          <span>Good Real Admin</span>
         </div>
         <h2>{isLogin ? "로그인" : "회원가입"}</h2>
         <form onSubmit={isLogin ? handleLogin : handleRegister}>

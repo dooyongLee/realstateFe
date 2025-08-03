@@ -431,8 +431,21 @@ html, body, #root {
   color: var(--primary);
 }
 .login-logo img {
-  width: 36px;
-  height: 36px;
+  width: 128px;
+  height: 128px;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.logo img {
+  width: 64px;
+  height: 64px;
 }
 .login-footer {
   margin-top: 32px;

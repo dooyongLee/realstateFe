@@ -50,7 +50,6 @@ export const formatDate = (dateString) => {
 // columns: handleStatusToggle을 인자로 받는 함수로 export
 export const columns = (handleStatusToggle) => [
   { key: "email", label: "이메일" },
-  { key: "username", label: "아이디" },
   { key: "name", label: "이름" },
   { key: "phone", label: "전화번호" },
   { key: "role", label: "권한", render: (value) => getRoleLabel(value) },

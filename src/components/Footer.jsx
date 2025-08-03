@@ -11,7 +11,7 @@ const footerStyle = {
 
 const Footer = () => (
   <footer style={footerStyle}>
-    © {new Date().getFullYear()} Real Estate Admin
+    © {new Date().getFullYear()} Good For You
   </footer>
 );
 

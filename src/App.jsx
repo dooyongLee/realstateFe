@@ -1,10 +1,12 @@
 import React, { useEffect, useState, createContext, useContext } from "react";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import AdminLayout from "./layouts/AdminLayout";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties/Properties";
-import Users from "./pages/Users/Users";
-import Settings from "./pages/Settings";
+import PropertyForm from "./pages/Properties/PropertyForm";
+import PropertyDetail from "./pages/Properties/PropertyDetail";
+import UsersManage from "./pages/Settings/UsersManage";
+import SubscriptionsManage from "./pages/Settings/SubscriptionsManage";
 import Login from "./pages/Login";
 import apiClient from "./api/apiClient";
 
@@ -72,8 +74,12 @@ function AppRoutes() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/properties" element={<Properties />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route path="/properties/add" element={<PropertyForm />} />
+                <Route path="/properties/edit/:id" element={<PropertyForm />} />
+                <Route path="/properties/detail/:id" element={<PropertyDetail />} />
+                <Route path="/settings/users" element={<UsersManage />} />
+                <Route path="/settings/subscriptions" element={<SubscriptionsManage />} />
+                <Route path="/settings" element={<Navigate to="/settings/users" replace />} />
               </Routes>
             </AdminLayout>
           ) : (

@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { FiHome, FiList, FiSettings } from "react-icons/fi";
+import { FiList, FiHome, FiSettings, FiUsers, FiCreditCard } from "react-icons/fi";
 
 const menu = [
-  { to: "/", label: "대시보드", icon: <FiHome /> },
-  { to: "/properties", label: "매물관리", icon: <FiList /> },
+  { to: "/", label: "대시보드", icon: <FiList /> },
+  { to: "/properties", label: "매물관리", icon: <FiHome /> },
   {
     label: "설정",
     icon: <FiSettings />,
     children: [
-      { to: "/settings/users", label: "회원관리" },
-      { to: "/settings/subscriptions", label: "구독관리" }
+      { to: "/settings/users", label: "회원관리", icon: <FiUsers /> },
+      { to: "/settings/subscriptions", label: "구독관리", icon: <FiCreditCard /> }
     ]
   }
 ];
@@ -53,6 +53,7 @@ const Sidebar = ({ open, onClose }) => {
                             }
                             onClick={onClose}
                           >
+                            {sub.icon}
                             {sub.label}
                           </NavLink>
                         </li>

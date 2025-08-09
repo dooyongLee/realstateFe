@@ -513,7 +513,6 @@ const SubscriptionsManage = () => {
                     <TableCell>플랜 타입</TableCell>
                     <TableCell align="right">최대 사용자</TableCell>
                     <TableCell align="right">현재 사용자</TableCell>
-                    <TableCell align="right">가격</TableCell>
                     <TableCell>구독 상태</TableCell>
                     <TableCell>시작일</TableCell>
                     <TableCell>만료일</TableCell>
@@ -550,9 +549,6 @@ const SubscriptionsManage = () => {
                         </TableCell>
                         <TableCell align="right">{sub.maxUsers || 0}</TableCell>
                         <TableCell align="right">{sub.currentUsers || 0}</TableCell>
-                        <TableCell align="right">
-                          {!sub.price || sub.price === 0 ? '무료' : `₩${sub.price.toLocaleString()}`}
-                        </TableCell>
                         <TableCell>
                           {(() => {
                             const info = statusMap[sub.status] || { label: sub.status, color: 'default' };

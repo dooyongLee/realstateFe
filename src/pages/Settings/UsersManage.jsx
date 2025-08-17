@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import AdminMainLayout from "../../components/AdminMainLayout";
-import { DataGrid as MUIDataGrid, useGridApiRef } from '@mui/x-data-grid';
+
 import apiClient from "../../api/apiClient";
 import { FaPlus, FaFileExcel } from "react-icons/fa";
 import Modal from "../../components/Modal";
@@ -31,6 +31,8 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import SearchFilter from '../../components/common/SearchFilter';
+import DataGrid from '../../components/common/DataGrid';
 
 const AGENCY_ROLES = ['AGENT', 'AGENCY', 'AGENCY_LEADER'];
 
@@ -50,7 +52,8 @@ const UsersManage = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [usersOrigin, setUsersOrigin] = useState([]); // 전체 회원 데이터
   const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
-  const apiRef = useGridApiRef();
+  const [selected, setSelected] = useState([]);
+
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -94,67 +97,105 @@ const UsersManage = () => {
     fetchUsers();
   }, [page, pageSize, role, subRole, searchType, keyword]);
 
-  // 구독 상태 표시를 위한 컬럼 확장
-  const getSubscriptionColumns = useCallback(() => {
-    const baseColumns = columns(handleStatusToggle)
-      .filter(col => !['subscriptionName', 'subscriptionStartDate', 'subscriptionEndDate'].includes(col.key))
-      .map(col => {
-        const dataGridCol = {
-          field: col.key,
-          headerName: col.label,
-          width: col.key === 'email' ? 200 : col.key === 'name' ? 150 : col.key === 'phone' ? 150 : col.key === 'role' ? 120 : col.key === 'enabled' ? 120 : col.key === 'createdAt' ? 120 : 150,
-          renderCell: col.render ? (params) => col.render(params.value, params.row) : undefined
-        };
-        if (col.key === 'role') {
-          return {
-            ...dataGridCol,
-            renderCell: (params) => (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <Typography variant="body2">
-                  {getRoleLabel(params.value)}
-                </Typography>
-                {params.row.currentSubscription && (
-                  <Chip
-                    label={params.row.currentSubscription.subscriptionPlan?.name || '구독중'}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    sx={{ mt: 0.5, fontSize: '0.7rem' }}
-                  />
-                )}
-              </Box>
-            )
-          };
-        }
-        return dataGridCol;
-      });
-    return baseColumns;
-  }, []);
+  // 공통 그리드 컬럼 설정
+  const gridColumns = [
+    {
+      field: 'email',
+      headerName: '이메일',
+      width: 200,
+      renderCell: (value) => (
+        <Typography variant="body2" sx={{ fontWeight: 500, color: '#1f2937' }}>
+          {value}
+        </Typography>
+      )
+    },
+    {
+      field: 'name',
+      headerName: '이름',
+      width: 150,
+      renderCell: (value) => (
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          {value}
+        </Typography>
+      )
+    },
+    {
+      field: 'role',
+      headerName: '권한',
+      width: 150,
+      renderCell: (value, row) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          <Typography variant="body2">
+            {getRoleLabel(value)}
+          </Typography>
+          {row.currentSubscription && (
+            <Chip
+              label={row.currentSubscription.subscriptionPlan?.name || '구독중'}
+              size="small"
+              color="primary"
+              variant="outlined"
+              sx={{ mt: 0.5, fontSize: '0.7rem' }}
+            />
+          )}
+        </Box>
+      )
+    },
+    {
+      field: 'phone',
+      headerName: '전화번호',
+      width: 150,
+      renderCell: (value) => value || '-'
+    },
+    {
+      field: 'enabled',
+      headerName: '상태',
+      width: 120,
+      renderCell: (value) => (
+        <Chip 
+          label={value ? '활성' : '비활성'} 
+          size="small" 
+          color={value ? 'success' : 'error'} 
+        />
+      )
+    },
+    {
+      field: 'createdAt',
+      headerName: '가입일',
+      width: 120,
+      renderCell: (value) => formatDate(value)
+    }
+  ];
 
-  const handlePageChange = useCallback((p) => {
-    setPage(p);
-    fetchUsers();
-  }, [fetchUsers]);
 
-  const handlePageSizeChange = useCallback((newPageSize) => {
-    setPageSize(newPageSize);
-    localStorage.setItem("usersPageSize", newPageSize);
-    setPage(1);
-    fetchUsers();
-  }, [fetchUsers]);
 
   useEffect(() => { setSubRole(""); }, [role]);
 
-  const handleSearch = useCallback(() => {
+  /**
+   * 검색 실행 핸들러
+   * 공통 검색 컴포넌트에서 호출되는 검색 함수
+   * 
+   * @param {Object} searchValues - 검색 조건 값들
+   */
+  const handleSearch = useCallback((searchValues) => {
+    setRole(searchValues.role || "");
+    setSubRole(searchValues.subRole || "");
+    setSearchType(searchValues.searchType || "name");
+    setKeyword(searchValues.keyword || "");
     setPage(1);
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleResetFilters = useCallback(() => {
-    setRole("");
-    setSubRole("");
-    setSearchType("name");
-    setKeyword("");
+  /**
+   * 검색 필터 초기화 핸들러
+   * 공통 검색 컴포넌트에서 호출되는 초기화 함수
+   * 
+   * @param {Object} resetValues - 초기화된 검색 값들
+   */
+  const handleResetFilters = useCallback((resetValues) => {
+    setRole(resetValues.role || "");
+    setSubRole(resetValues.subRole || "");
+    setSearchType(resetValues.searchType || "name");
+    setKeyword(resetValues.keyword || "");
     setPage(1);
     fetchUsers();
   }, [fetchUsers]);
@@ -203,23 +244,23 @@ const UsersManage = () => {
   }, []);
 
   const handleBatchStatus = useCallback(async (enabled) => {
-    const selectedRows = Array.from(apiRef.current.getSelectedRows().values());
-    if (!selectedRows || selectedRows.length === 0) {
+    if (!selected.length) {
       setAlert({ open: true, message: '선택된 회원이 없습니다.', severity: 'warning' });
       return;
     }
     try {
-      await Promise.all(selectedRows.map(user => {
+      await Promise.all(selected.map(userId => {
+        const user = users.find(u => u.id === userId);
         return apiClient.patch(`/api/users/${user.email}/status`, { enabled });
       }));
       setUsers(prev => prev.map(u =>
-        selectedRows.some(sel => sel.id === u.id) ? { ...u, enabled } : u
+        selected.includes(u.id) ? { ...u, enabled } : u
       ));
       setAlert({ open: true, message: `선택된 회원이 모두 ${enabled ? '활성화' : '비활성화'}되었습니다.`, severity: 'success' });
     } catch (error) {
       setAlert({ open: true, message: '일괄 상태 변경 중 오류가 발생했습니다.', severity: 'error' });
     }
-  }, [apiRef]);
+  }, [selected, users]);
 
   // 통계 데이터 useMemo로 최적화
   const stats = useMemo(() => {
@@ -359,99 +400,50 @@ const UsersManage = () => {
       </Box>
 
       {/* 검색 및 필터 영역 */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={2}>
-            <Select
-              fullWidth
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              displayEmpty
-              size="small"
-            >
-              <MenuItem value="">전체 권한</MenuItem>
-              {ROLE_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <Select
-              fullWidth
-              value={subRole}
-              onChange={(e) => setSubRole(e.target.value)}
-              displayEmpty
-              size="small"
-              disabled={!role}
-            >
-              <MenuItem value="">전체 세부권한</MenuItem>
-              {(SUBROLE_OPTIONS[role] || []).map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <Select
-              fullWidth
-              value={searchType}
-              onChange={(e) => setSearchType(e.target.value)}
-              size="small"
-            >
-              {SEARCH_TYPE_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              placeholder="검색어를 입력하세요"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              size="small"
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleSearch}>
-                      <SearchIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
-                onClick={handleSearch}
-                startIcon={<SearchIcon />}
-                sx={{ flex: 1 }}
-              >
-                검색
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={handleResetFilters}
-                startIcon={<UndoIcon />}
-                sx={{ flex: 1 }}
-              >
-                초기화
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
+      <SearchFilter
+        searchFields={[
+          {
+            type: 'select',
+            key: 'searchType',
+            label: '검색타입',
+            options: SEARCH_TYPE_OPTIONS
+          },
+          {
+            type: 'text',
+            key: 'keyword',
+            placeholder: '검색어를 입력하세요'
+          }
+        ]}
+        filterFields={[
+          {
+            key: 'role',
+            label: '권한',
+            options: [{ value: '', label: '전체 권한' }, ...ROLE_OPTIONS]
+          },
+          {
+            key: 'subRole',
+            label: '세부권한',
+            options: [{ value: '', label: '전체 세부권한' }, ...(SUBROLE_OPTIONS[role] || [])]
+          }
+        ]}
+        searchValues={{
+          role: role,
+          subRole: subRole,
+          searchType: searchType,
+          keyword: keyword
+        }}
+        onSearch={handleSearch}
+        onReset={handleResetFilters}
+      />
 
       {/* 액션 버튼 영역 */}
-      <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* 선택된 항목 수 표시 */}
+        {selected.length > 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
+            {selected.length}개 선택됨
+          </Typography>
+        )}
         <Button
           variant="contained"
           startIcon={<FaPlus />}
@@ -473,6 +465,7 @@ const UsersManage = () => {
           color="success"
           onClick={() => handleBatchStatus(true)}
           sx={{ minWidth: 120 }}
+          disabled={selected.length === 0}
         >
           일괄 활성화
         </Button>
@@ -481,44 +474,33 @@ const UsersManage = () => {
           color="error"
           onClick={() => handleBatchStatus(false)}
           sx={{ minWidth: 120 }}
+          disabled={selected.length === 0}
         >
           일괄 비활성화
         </Button>
       </Box>
 
-      {/* 데이터 그리드 */}
-      <Paper sx={{ height: 600, width: '100%' }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <MUIDataGrid
-            rows={users}
-            columns={getSubscriptionColumns()}
-            apiRef={apiRef}
-            pagination
-            paginationMode="server"
-            rowCount={total}
-            page={page - 1}
-            pageSize={pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-            pageSizeOptions={[10, 25, 50]}
-            checkboxSelection
-            disableRowSelectionOnClick
-            onRowClick={(params) => handleRowClick(params.row)}
-            sx={{
-              '& .MuiDataGrid-cell:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-row:hover': {
-                backgroundColor: theme.palette.action.hover,
-              },
-            }}
-          />
-        )}
-      </Paper>
+             {/* 공통 데이터 그리드 */}
+       <DataGrid
+         columns={gridColumns}
+         rows={users}
+         loading={loading}
+         pagination={{
+           page: page - 1,
+           pageSize: pageSize,
+           total: total
+         }}
+         selectedRows={selected}
+         onRowClick={handleRowClick}
+         onSelectionChange={setSelected}
+         onPageChange={(newPage) => setPage(newPage + 1)}
+         onPageSizeChange={(newPageSize) => {
+           setPageSize(newPageSize);
+           setPage(1);
+         }}
+         selectable={true}
+         clickable={true}
+       />
 
       {/* 알림 */}
       {alert.open && (

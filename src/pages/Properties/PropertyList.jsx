@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import AdminMainLayout from "../../components/AdminMainLayout";
-import { DataGrid as MUIDataGrid, useGridApiRef } from '@mui/x-data-grid';
+
 import apiClient from "../../api/apiClient";
 import { FaPlus, FaFileExcel } from "react-icons/fa";
 
@@ -21,6 +21,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
 import HomeIcon from '@mui/icons-material/Home';
 import AddHomeIcon from '@mui/icons-material/AddHome';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -30,6 +31,8 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import SearchIcon from '@mui/icons-material/Search';
 import UndoIcon from '@mui/icons-material/Undo';
 import { formatDate, formatRelativeTime } from "../../utils/formatDate";
+import SearchFilter from '../../components/common/SearchFilter';
+import DataGrid from '../../components/common/DataGrid';
 
 const PropertyList = () => {
   const { showAlert } = useAlert();
@@ -48,7 +51,8 @@ const PropertyList = () => {
 
   const [propertiesOrigin, setPropertiesOrigin] = useState([]);
   const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
-  const apiRef = useGridApiRef();
+  const [selected, setSelected] = useState([]);
+
 
   const fetchProperties = useCallback(async () => {
     setLoading(true);
@@ -125,17 +129,34 @@ const PropertyList = () => {
     fetchProperties();
   }, [fetchProperties]);
 
-  const handleSearch = useCallback(() => {
+  /**
+   * 검색 실행 핸들러
+   * 공통 검색 컴포넌트에서 호출되는 검색 함수
+   * 
+   * @param {Object} searchValues - 검색 조건 값들
+   */
+  const handleSearch = useCallback((searchValues) => {
+    setPropertyType(searchValues.propertyType || "");
+    setDealType(searchValues.dealType || "");
+    setStatus(searchValues.status || "");
+    setSearchType(searchValues.searchType || "keyword");
+    setKeyword(searchValues.keyword || "");
     setPage(1);
     fetchProperties();
   }, [fetchProperties]);
 
-  const handleResetFilters = useCallback(() => {
-    setPropertyType("");
-    setDealType("");
-    setStatus("");
-    setSearchType("keyword");
-    setKeyword("");
+  /**
+   * 검색 필터 초기화 핸들러
+   * 공통 검색 컴포넌트에서 호출되는 초기화 함수
+   * 
+   * @param {Object} resetValues - 초기화된 검색 값들
+   */
+  const handleResetFilters = useCallback((resetValues) => {
+    setPropertyType(resetValues.propertyType || "");
+    setDealType(resetValues.dealType || "");
+    setStatus(resetValues.status || "");
+    setSearchType(resetValues.searchType || "keyword");
+    setKeyword(resetValues.keyword || "");
     setPage(1);
     fetchProperties();
   }, [fetchProperties]);
@@ -186,27 +207,128 @@ const PropertyList = () => {
 
 
   const handleBatchStatus = useCallback(async (status) => {
-    const selectedRows = Array.from(apiRef.current.getSelectedRows().values());
-    if (!selectedRows || selectedRows.length === 0) {
+    if (!selected.length) {
       setAlert({ open: true, message: '선택된 매물이 없습니다.', severity: 'warning' });
       return;
     }
     try {
-      await Promise.all(selectedRows.map(property => {
+      await Promise.all(selected.map(propertyId => {
+        const property = properties.find(p => p.id === propertyId);
         return apiClient.put(`/api/properties/${property.id}/status?status=${status}`);
       }));
       setProperties(prev => prev.map(p =>
-        selectedRows.some(sel => sel.id === p.id) ? { ...p, status } : p
+        selected.includes(p.id) ? { ...p, status } : p
       ));
       setAlert({ open: true, message: `선택된 매물이 모두 ${getStatusLabel(status)}로 변경되었습니다.`, severity: 'success' });
     } catch (error) {
       setAlert({ open: true, message: '일괄 상태 변경 중 오류가 발생했습니다.', severity: 'error' });
     }
-  }, [apiRef]);
+  }, [selected, properties]);
 
   const handleEdit = useCallback((property) => {
     navigate(`/properties/edit/${property.id}`);
   }, [navigate]);
+
+  // 공통 그리드 컬럼 설정
+  const columns = [
+    {
+      field: 'title',
+      headerName: '제목',
+      width: 250,
+      renderCell: (value, row) => (
+        <Typography variant="body2" sx={{ fontWeight: 500, color: '#1f2937' }}>
+          {getPropertyTypeLabel(row.propertyType)} 매물 {row.id}
+        </Typography>
+      )
+    },
+    {
+      field: 'propertyType',
+      headerName: '매물타입',
+      width: 120,
+      renderCell: (value) => (
+        <Chip 
+          label={getPropertyTypeLabel(value)} 
+          size="small" 
+          variant="outlined"
+          sx={{ 
+            backgroundColor: '#f3f4f6',
+            borderColor: '#d1d5db',
+            color: '#374151'
+          }}
+        />
+      )
+    },
+    {
+      field: 'dealType',
+      headerName: '거래타입',
+      width: 100,
+      renderCell: (value) => getDealTypeLabel(value) || '-'
+    },
+    {
+      field: 'address',
+      headerName: '주소',
+      width: 200,
+      renderCell: (value) => (
+        <Typography variant="body2" noWrap sx={{ maxWidth: 180 }}>
+          {value || '-'}
+        </Typography>
+      )
+    },
+    {
+      field: 'area',
+      headerName: '면적',
+      width: 100,
+      renderCell: (value) => (
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          {value ? `${value}㎡` : '-'}
+        </Typography>
+      )
+    },
+    {
+      field: 'price',
+      headerName: '가격',
+      width: 150,
+      renderCell: (value) => (
+        <Typography variant="body2" sx={{ fontWeight: 600, color: '#059669' }}>
+          {value ? `${value.toLocaleString()}원` : '-'}
+        </Typography>
+      )
+    },
+    {
+      field: 'deposit',
+      headerName: '보증금',
+      width: 150,
+      renderCell: (value) => (
+        <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed' }}>
+          {value ? `${value.toLocaleString()}원` : '-'}
+        </Typography>
+      )
+    },
+    {
+      field: 'monthlyRent',
+      headerName: '월세',
+      width: 100,
+      renderCell: (value) => value ? `${value.toLocaleString()}원` : '-'
+    },
+    {
+      field: 'status',
+      headerName: '상태',
+      width: 100,
+      renderCell: (value) => (
+        <Chip 
+          label={getStatusLabel(value)} 
+          size="small" 
+          color={value === 'ACTIVE' ? 'success' : value === 'INACTIVE' ? 'error' : 'warning'}
+        />
+      )
+    },
+    {
+      field: 'createdAt',
+      headerName: '등록일',
+      width: 120,
+      renderCell: (value) => formatDate(value)
+    }
+  ];
 
   // 통계 데이터 useMemo로 최적화
   const stats = useMemo(() => {
@@ -354,100 +476,48 @@ const PropertyList = () => {
         </Grid>
       </Box>
 
-      {/* 필터/검색 바와 데이터 그리드를 포함하는 컨테이너 */}
-      <Paper elevation={1} sx={{ p: 3, mb: 3, width: '100%', boxShadow: '0 1px 4px 0 rgba(30,40,60,0.06)', border: '1px solid #e3e8ef', background: '#fff' }}>
-        <Box component="form"
-          onSubmit={e => { e.preventDefault(); handleSearch(); }}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            flexWrap: 'nowrap',
-            width: '100%',
-            minWidth: 0
-          }}
-        >
-          <Select
-            value={propertyType}
-            onChange={e => setPropertyType(e.target.value)}
-            size="small"
-            displayEmpty
-            sx={{ width: 140, flex: '0 0 140px' }}
-            inputProps={{ 'aria-label': '매물유형' }}
-          >
-            {PROPERTY_TYPE_OPTIONS.map(opt => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-            ))}
-          </Select>
-          <Select
-            value={dealType}
-            onChange={e => setDealType(e.target.value)}
-            size="small"
-            displayEmpty
-            sx={{ width: 140, flex: '0 0 140px' }}
-            inputProps={{ 'aria-label': '거래유형' }}
-          >
-            {DEAL_TYPE_OPTIONS.map(opt => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-            ))}
-          </Select>
-          <Select
-            value={status}
-            onChange={e => setStatus(e.target.value)}
-            size="small"
-            displayEmpty
-            sx={{ width: 140, flex: '0 0 140px' }}
-            inputProps={{ 'aria-label': '상태' }}
-          >
-            {STATUS_OPTIONS.map(opt => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-            ))}
-          </Select>
-          <Select
-            value={searchType}
-            onChange={e => setSearchType(e.target.value)}
-            size="small"
-            displayEmpty
-            sx={{ width: 140, flex: '0 0 140px' }}
-            inputProps={{ 'aria-label': '검색타입' }}
-          >
-            {SEARCH_TYPE_OPTIONS.map(opt => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-            ))}
-          </Select>
-          <TextField
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-            size="small"
-            placeholder="검색어를 입력하세요"
-            sx={{ width: 200, flex: '1 1 200px' }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton type="submit" size="small" aria-label="검색">
-                    <SearchIcon />
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
-            inputProps={{ 'aria-label': '검색어' }}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSearch}
-            sx={{ minWidth: 80 }}
-            type="submit"
-            aria-label="검색"
-          >
-            검색
-          </Button>
-          <IconButton onClick={handleResetFilters} size="small" title="초기화" aria-label="초기화">
-            <UndoIcon />
-          </IconButton>
-        </Box>
-      </Paper>
+      {/* 검색 및 필터 영역 */}
+      <SearchFilter
+        searchFields={[
+          {
+            type: 'select',
+            key: 'searchType',
+            label: '검색타입',
+            options: SEARCH_TYPE_OPTIONS
+          },
+          {
+            type: 'text',
+            key: 'keyword',
+            placeholder: '검색어를 입력하세요'
+          }
+        ]}
+        filterFields={[
+          {
+            key: 'propertyType',
+            label: '매물유형',
+            options: PROPERTY_TYPE_OPTIONS
+          },
+          {
+            key: 'dealType',
+            label: '거래유형',
+            options: DEAL_TYPE_OPTIONS
+          },
+          {
+            key: 'status',
+            label: '상태',
+            options: STATUS_OPTIONS
+          }
+        ]}
+        searchValues={{
+          propertyType: propertyType,
+          dealType: dealType,
+          status: status,
+          searchType: searchType,
+          keyword: keyword
+        }}
+        onSearch={handleSearch}
+        onReset={handleResetFilters}
+      />
 
       {/* 알림 영역 */}
       {alert.open && (
@@ -456,115 +526,71 @@ const PropertyList = () => {
         </Alert>
       )}
 
-      <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <Button variant="contained" color="success" size="medium" onClick={() => handleBatchStatus('AVAILABLE')} sx={{ minWidth: 140 }} aria-label="선택매물 활성화">
-            선택매물 활성화
-          </Button>
-          <Button variant="contained" color="warning" size="medium" onClick={() => handleBatchStatus('UNAVAILABLE')} sx={{ minWidth: 140 }} aria-label="선택매물 비활성화">
-            선택매물 비활성화
-          </Button>
-          <Button variant="contained" color="info" size="medium" onClick={handleExcelDownload} startIcon={<FaFileExcel />} sx={{ minWidth: 140 }} aria-label="엑셀 다운로드">
-            엑셀 다운로드
-          </Button>
-          <Button variant="contained" color="primary" size="medium" onClick={handleAddProperty} startIcon={<FaPlus />} sx={{ minWidth: 140 }} aria-label="매물추가">
-            매물추가
-          </Button>
-        </Box>
-        {loading ? (
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            minHeight: 400,
-            flexDirection: 'column',
-            gap: 2
-          }}>
-            <CircularProgress size={60} />
-            <Typography variant="h6" color="text.secondary">
-              매물 정보를 불러오는 중...
-            </Typography>
-          </Box>
-        ) : (
-          <MUIDataGrid
-            columns={columns(handleEdit, handleRowClick, handleViewDetail).map(col => ({
-              field: col.field,
-              headerName: col.headerName,
-              flex: 1,
-              renderCell: col.renderCell,
-              sortable: col.sortable,
-              filterable: false,
-              width: col.width
-            }))}
-            rows={properties}
-            page={page - 1}
-            pageSize={pageSize}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-            pagination
-            paginationMode="server"
-            rowCount={total}
-            onPageChange={newPage => setPage(newPage + 1)}
-            onPageSizeChange={newPageSize => {
-              setPageSize(newPageSize);
-              setPage(1);
-            }}
-            autoHeight
-            disableSelectionOnClick
-            localeText={{ 
-              noRowsLabel: (
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  gap: 2,
-                  py: 4
-                }}>
-                  <HomeIcon sx={{ fontSize: 60, color: 'text.secondary' }} />
-                  <Typography variant="h6" color="text.secondary">
-                    조회된 매물이 없습니다
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    검색 조건을 변경하거나 새로운 매물을 등록해보세요
-                  </Typography>
-                </Box>
-              )
-            }}
-            checkboxSelection
-            getRowId={(row) => row.id}
-            apiRef={apiRef}
-            onRowClick={(params) => handleRowClick(params.row)}
-            sx={{
-              '& .MuiDataGrid-row': {
-                cursor: 'pointer',
-                transition: 'all 0.2s ease-in-out',
-                '&:hover': {
-                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }
-              },
-              '& .MuiDataGrid-cell': {
-                borderBottom: '1px solid #e3e8ef',
-                '&:focus': {
-                  outline: 'none'
-                }
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: '#f8fafc',
-                borderBottom: '2px solid #e3e8ef',
-                '& .MuiDataGrid-columnHeader': {
-                  fontWeight: 700,
-                  color: '#374151'
-                }
-              },
-              '& .MuiDataGrid-footerContainer': {
-                borderTop: '2px solid #e3e8ef',
-                backgroundColor: '#f8fafc'
-              }
-            }}
-          />
-        )}
-      </Paper>
+      {/* 액션 버튼 영역 */}
+      <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <Button 
+          variant="contained" 
+          color="success" 
+          size="medium" 
+          onClick={() => handleBatchStatus('AVAILABLE')} 
+          sx={{ minWidth: 140 }} 
+          disabled={selected.length === 0}
+        >
+          선택매물 활성화
+        </Button>
+        <Button 
+          variant="contained" 
+          color="warning" 
+          size="medium" 
+          onClick={() => handleBatchStatus('UNAVAILABLE')} 
+          sx={{ minWidth: 140 }} 
+          disabled={selected.length === 0}
+        >
+          선택매물 비활성화
+        </Button>
+        <Button 
+          variant="contained" 
+          color="info" 
+          size="medium" 
+          onClick={handleExcelDownload} 
+          startIcon={<FaFileExcel />} 
+          sx={{ minWidth: 140 }}
+        >
+          엑셀 다운로드
+        </Button>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          size="medium" 
+          onClick={handleAddProperty} 
+          startIcon={<FaPlus />} 
+          sx={{ minWidth: 140 }}
+        >
+          매물추가
+        </Button>
+      </Box>
+
+      {/* 공통 데이터 그리드 */}
+      <DataGrid
+        columns={columns}
+        rows={properties}
+        loading={loading}
+        pagination={{
+          page: page - 1,
+          pageSize: pageSize,
+          total: total
+        }}
+        selectedRows={selected}
+        onRowClick={handleRowClick}
+        onSelectionChange={setSelected}
+        onPageChange={(newPage) => setPage(newPage + 1)}
+        onPageSizeChange={(newPageSize) => {
+          setPageSize(newPageSize);
+          setPage(1);
+        }}
+        selectable={true}
+        clickable={true}
+      />
 
 
     </AdminMainLayout>

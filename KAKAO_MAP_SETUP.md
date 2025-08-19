@@ -6,7 +6,6 @@
 
 ### 🔑 API 키 정보
 - **JavaScript 키**: `c456a11190a7975ad58deff213fae949` ✅ (카카오맵 SDK용)
-- **REST API 키**: `aeea8cea7984071c53d4131c7b336bfe` (서버 API 호출용)
 
 ## 🚨 이전 문제 상황 (해결됨)
 
@@ -18,7 +17,6 @@
 ## 🔍 문제 원인
 
 ### 1. API 키 타입 불일치 (해결됨)
-- **이전 사용 키**: `aeea8cea7984071c53d4131c7b336bfe` (REST API 키)
 - **현재 사용 키**: `c456a11190a7975ad58deff213fae949` (JavaScript 키)
 - **REST API 키**: 서버 사이드에서 카카오 API를 호출할 때 사용
 - **JavaScript 키**: 클라이언트 사이드에서 카카오맵 SDK를 사용할 때 사용

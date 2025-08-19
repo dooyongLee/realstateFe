@@ -41,6 +41,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import UndoIcon from '@mui/icons-material/Undo';
+import './SearchFilter.css';
 
 /**
  * 공통 검색 필터 컴포넌트
@@ -56,19 +57,19 @@ import UndoIcon from '@mui/icons-material/Undo';
  * 
  * 사용 예시:
  * <SearchFilter
- *   searchFields={[
+ *   searchFields=[
  *     { type: 'text', key: 'keyword', placeholder: '검색어 입력' },
  *     { type: 'select', key: 'searchType', label: '검색타입', options: [
  *       { value: 'name', label: '이름' },
  *       { value: 'email', label: '이메일' }
  *     ]}
- *   ]}
- *   filterFields={[
+ *   ]
+ *   filterFields=[
  *     { key: 'status', label: '상태', options: [
  *       { value: '', label: '전체' },
  *       { value: 'active', label: '활성' }
  *     ]}
- *   ]}
+ *   ]
  *   searchValues={searchValues}
  *   onSearch={handleSearch}
  *   onReset={handleReset}
@@ -242,15 +243,8 @@ const SearchFilter = ({
 
   return (
     <Paper 
-      sx={{ 
-        p: 3, 
-        mb: 3, 
-        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-        border: '1px solid #e2e8f0',
-        borderRadius: 2,
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-        ...sx 
-      }}
+      className="search-filter"
+      sx={sx}
     >
       <Grid container spacing={2} alignItems="center">
         {/* 검색 필드들 */}
@@ -261,24 +255,12 @@ const SearchFilter = ({
         
         {/* 검색 및 초기화 버튼 */}
         <Grid item xs={12} sm={6} md={3} lg={2}>
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 1, 
-            height: '100%',
-            alignItems: 'center'
-          }}>
+          <Box className="search-actions">
             <Button
               variant="contained"
               onClick={handleSearch}
               startIcon={<SearchIcon />}
-              sx={{ 
-                flex: 1,
-                height: 40,
-                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)'
-                }
-              }}
+              className="search-button"
             >
               검색
             </Button>
@@ -286,16 +268,7 @@ const SearchFilter = ({
               variant="outlined"
               onClick={handleReset}
               startIcon={<UndoIcon />}
-              sx={{ 
-                flex: 1,
-                height: 40,
-                borderColor: '#d1d5db',
-                color: '#374151',
-                '&:hover': {
-                  borderColor: '#9ca3af',
-                  backgroundColor: '#f9fafb'
-                }
-              }}
+              className="reset-button"
             >
               초기화
             </Button>

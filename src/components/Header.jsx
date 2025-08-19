@@ -34,6 +34,7 @@
 import React from "react";
 import { FiUser } from "react-icons/fi";
 import logo from "../assets/goodreal.png"; // 로고 예시, 실제 로고로 교체 가능
+import "./Header.css";
 
 /**
  * 헤더 컴포넌트
@@ -74,7 +75,7 @@ const Header = ({ user, onHamburgerClick, onLogout }) => (
     </button>
     
     {/* 로고 및 브랜드명 영역 */}
-    <div className="logo">
+    <div className="header-logo">
       <img 
         src={logo} 
         alt="Good Real Admin" 
@@ -87,7 +88,7 @@ const Header = ({ user, onHamburgerClick, onLogout }) => (
     {/* 사용자 정보 및 로그아웃 영역 */}
     <div className="header-user">
       {/* 사용자 아이콘 */}
-      <FiUser size={20} style={{ marginRight: 4 }} />
+      <FiUser size={20} className="header-user-icon" />
       
       {/* 사용자 이름 표시 (없으면 "관리자"로 표시) */}
       <span>{user?.name || "관리자"}</span>

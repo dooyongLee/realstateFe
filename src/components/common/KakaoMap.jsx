@@ -58,31 +58,129 @@ const KakaoMap = ({
   const [map, setMap] = useState(null);
   const [containerReady, setContainerReady] = useState(false);
 
-  // DOM이 완전히 마운트된 후 컨테이너 상태 확인
-  useLayoutEffect(() => {
-    const checkContainer = () => {
-      if (mapContainer.current) {
-        const rect = mapContainer.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          console.log('컨테이너 준비 완료:', rect.width, 'x', rect.height);
-          setContainerReady(true);
-          return true;
+  // Kakao SDK가 완전히 준비될 때까지 대기 (LatLng/Map/Geocoder까지 확인, 최대 15초)
+  const waitForKakaoSdk = useCallback(() => {
+    const maxWaitMs = 15000;
+    const intervalMs = 100;
+    let waited = 0;
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        const isReady = !!(
+          window.kakao &&
+          window.kakao.maps &&
+          typeof window.kakao.maps.LatLng === 'function' &&
+          typeof window.kakao.maps.Map === 'function' &&
+          window.kakao.maps.services &&
+          typeof window.kakao.maps.services.Geocoder === 'function'
+        );
+        if (isReady) {
+          resolve(true);
+          return;
         }
+        waited += intervalMs;
+        if (waited >= maxWaitMs) {
+          reject(new Error('카카오맵 API가 로드되지 않았습니다. (타임아웃)'));
+          return;
+        }
+        setTimeout(check, intervalMs);
+      };
+      check();
+    });
+  }, []);
+
+  // Kakao SDK 스크립트를 보장적으로 로드 (index.html에 없거나 로드 실패 시 동적 주입)
+  const ensureKakaoScript = useCallback(async () => {
+    // 항상 autoload=false & libraries=services로 주입하여 load 콜백 시점 보장
+    let appkey = 'c456a11190a7975ad58deff213fae949';
+    try {
+      const headScript = document.querySelector('script[src*="dapi.kakao.com/v2/maps/sdk.js?"]');
+      if (headScript) {
+        const url = new URL(headScript.src, window.location.origin);
+        const fromHead = url.searchParams.get('appkey');
+        if (fromHead) appkey = fromHead;
+      }
+    } catch (_) {}
+
+    // 기존 스크립트가 있어도 autoload/libraries 구성이 다를 수 있으므로 새 스크립트를 주입
+    const cacheBuster = `&_=${Date.now()}`;
+    const httpsUrl = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appkey}&autoload=false&libraries=services${cacheBuster}`;
+    const httpUrl = `http://dapi.kakao.com/v2/maps/sdk.js?appkey=${appkey}&autoload=false&libraries=services${cacheBuster}`;
+
+    const injectScript = (url) => new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.async = true;
+      s.src = url;
+      s.onload = () => { s.setAttribute('data-loaded', 'true'); resolve(true); };
+      s.onerror = () => reject(new Error(`카카오맵 스크립트 로드 실패: ${url}`));
+      document.head.appendChild(s);
+    });
+
+    try {
+      await injectScript(httpsUrl);
+    } catch (e) {
+      // HTTPS 실패 시 HTTP로 재시도 (개발환경 한정)
+      await injectScript(httpUrl);
+    }
+  }, []);
+
+  // DOM이 완전히 마운트된 후 컨테이너 상태 확인 (ResizeObserver + 폴링 병행)
+  useLayoutEffect(() => {
+    let cancelled = false;
+    let observer = null;
+
+    const check = () => {
+      const node = mapContainer.current;
+      if (!node) return false;
+      const rect = node.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        console.log('컨테이너 준비 완료:', rect.width, 'x', rect.height);
+        setContainerReady(true);
+        return true;
       }
       return false;
     };
 
-    // 즉시 체크
-    if (!checkContainer()) {
-      // 약간의 지연 후 다시 체크
-      const timer = setTimeout(() => {
-        if (checkContainer()) {
-          clearTimeout(timer);
-        }
-      }, 100);
-      
-      return () => clearTimeout(timer);
-    }
+    const setupObserverIfPossible = () => {
+      const node = mapContainer.current;
+      if (!node) return false;
+      try {
+        observer = new ResizeObserver(() => {
+          if (!cancelled) {
+            check();
+          }
+        });
+        observer.observe(node);
+      } catch (_) {}
+      return true;
+    };
+
+    if (check()) return undefined;
+    setupObserverIfPossible();
+
+    let attempts = 0;
+    const maxAttempts = 30; // 최대 3초 폴링
+    const intervalId = setInterval(() => {
+      attempts += 1;
+      if (cancelled) return;
+      if (check()) {
+        clearInterval(intervalId);
+        try { observer && observer.disconnect(); } catch (_) {}
+        return;
+      }
+      // ref가 아직 없을 수 있으므로 주기적으로 옵저버도 설정 시도
+      if (!observer) setupObserverIfPossible();
+      if (attempts >= maxAttempts) {
+        clearInterval(intervalId);
+        try { observer && observer.disconnect(); } catch (_) {}
+      }
+    }, 100);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      try { observer && observer.disconnect(); } catch (_) {}
+    };
   }, []);
 
   // 지도 초기화 함수
@@ -97,13 +195,11 @@ const KakaoMap = ({
       console.log('주소:', address);
       console.log('컨테이너 상태:', mapContainer.current);
       
-      // 카카오맵 API 확인
-      if (!window.kakao || !window.kakao.maps) {
-        throw new Error('카카오맵 API가 로드되지 않았습니다.');
-      }
+      // 카카오맵 스크립트 보장
+      await ensureKakaoScript();
 
-      // API 초기화
-      if (!window.kakao.maps.isLoaded()) {
+      // API 초기화 (가능하면 load로 초기화 보장)
+      if (window.kakao && window.kakao.maps && typeof window.kakao.maps.load === 'function') {
         console.log('카카오맵 API 초기화 중...');
         await new Promise((resolve) => {
           window.kakao.maps.load(() => {
@@ -112,6 +208,8 @@ const KakaoMap = ({
           });
         });
       }
+
+      // load 콜백 이후 바로 진행 (내부 객체가 준비됨)
 
       // 지도 생성
       console.log('지도 생성 시작...');
@@ -123,6 +221,19 @@ const KakaoMap = ({
       const newMap = new window.kakao.maps.Map(mapContainer.current, options);
       setMap(newMap);
       console.log('지도 객체 생성 완료');
+
+      // 컨테이너 애니메이션 종료 이후에 레이아웃 보정
+      // 아코디언의 높이 전환 애니메이션이 끝난 뒤 지도가 올바른 크기를 인식하도록 보정합니다.
+      setTimeout(() => {
+        try {
+          newMap.relayout();
+        } catch (_) {}
+      }, 350);
+      setTimeout(() => {
+        try {
+          newMap.relayout();
+        } catch (_) {}
+      }, 800);
 
       // 주소 검색 및 마커 표시
       if (address) {
@@ -137,13 +248,30 @@ const KakaoMap = ({
 
         const geocoder = new window.kakao.maps.services.Geocoder();
 
-        geocoder.addressSearch(cleanAddress, (result, status) => {
-          if (status === window.kakao.maps.services.Status.OK) {
+        const fallbackSearch = (roadOrJibun) => {
+          return new Promise((resolve) => {
+            geocoder.addressSearch(roadOrJibun, (result, status) => {
+              resolve({ result, status });
+            });
+          });
+        };
+
+        geocoder.addressSearch(cleanAddress, async (result, status) => {
+          if (status === window.kakao.maps.services.Status.OK && result && result.length > 0) {
             const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
             console.log('주소 검색 성공, 좌표:', coords);
 
-            // 지도 중심 이동
+            // 지도 중심 이동 (레이아웃 후 보정 포함)
             newMap.setCenter(coords);
+            // 다음 페인트 타이밍에 레이아웃 재계산 후 다시 센터 보정
+            if (typeof window.requestAnimationFrame === 'function') {
+              window.requestAnimationFrame(() => {
+                try {
+                  newMap.relayout();
+                  newMap.setCenter(coords);
+                } catch (_) {}
+              });
+            }
 
             // 마커 표시
             if (showMarker) {
@@ -170,9 +298,48 @@ const KakaoMap = ({
             setLoading(false);
             console.log('지도 초기화 완료!');
           } else {
-            console.error('주소 검색 실패:', status);
-            setError('주소를 찾을 수 없습니다. 주소를 확인해주세요.');
-            setLoading(false);
+            console.warn('주소 검색 실패, 대체 검색 시도:', status, cleanAddress);
+
+            // 1) 도로명/지번 혼합 가능성에 대비하여 숫자 상세 제거 후 행정동만 시도
+            const adminOnly = cleanAddress.replace(/\s(\d+[^\s]*)$/, '').trim();
+            let fallback = await fallbackSearch(adminOnly);
+
+            if (!(fallback.status === window.kakao.maps.services.Status.OK && fallback.result && fallback.result.length > 0)) {
+              // 2) 마지막 토큰 제거 재시도
+              const tokens = adminOnly.split(/\s+/);
+              if (tokens.length > 2) {
+                const shorter = tokens.slice(0, tokens.length - 1).join(' ');
+                fallback = await fallbackSearch(shorter);
+              }
+            }
+
+            if (fallback.status === window.kakao.maps.services.Status.OK && fallback.result && fallback.result.length > 0) {
+              const coords = new window.kakao.maps.LatLng(fallback.result[0].y, fallback.result[0].x);
+              console.log('대체 주소 검색 성공, 좌표:', coords);
+              newMap.setCenter(coords);
+              if (showMarker) {
+                const marker = new window.kakao.maps.Marker({ position: coords, map: newMap });
+                if (showInfoWindow) {
+                  const infowindow = new window.kakao.maps.InfoWindow({
+                    content: `
+                      <div style="padding:5px; font-size:12px;">
+                        <h3 style="margin: 0 0 5px 0; font-size: 14px; color: #333;">${markerTitle}</h3>
+                        <p style="margin: 0; font-size: 12px; color: #666;">${markerContent}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #999;">${adminOnly}</p>
+                      </div>
+                    `
+                  });
+                  infowindow.open(newMap, marker);
+                }
+              }
+              setLoading(false);
+              console.log('지도 초기화 완료! (대체 검색)');
+            } else {
+              console.error('주소 검색 실패 (ZERO_RESULT), 대체 검색도 실패');
+              // 에러는 오버레이로만 표시하고 지도 컨테이너는 유지
+              setError('주소를 찾을 수 없습니다. 근처 행정동으로 검색해 주세요.');
+              setLoading(false);
+            }
           }
         });
       } else {
@@ -198,72 +365,66 @@ const KakaoMap = ({
     }
   }, [containerReady, address, initializeMap]);
 
-  // 로딩 중일 때
-  if (loading) {
-    return (
-      <Box sx={{ 
-        height, 
-        width, 
-        display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: '#f5f5f5',
-        borderRadius: 1,
-        ...sx
-      }}>
-        <CircularProgress size={40} />
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          지도를 불러오는 중...
-        </Typography>
-      </Box>
-    );
-  }
+  // 컨테이너 크기 변화에 따라 지도 레이아웃을 보정
+  useLayoutEffect(() => {
+    if (!map || !mapContainer.current) return;
 
-  // 에러가 있을 때
-  if (error) {
-    return (
-      <Box sx={{ 
-        height, 
-        width, 
-        display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: '#fff3cd',
-        border: '1px solid #ffeaa7',
-        borderRadius: 1,
-        p: 2,
-        ...sx
-      }}>
-        <WarningIcon color="warning" sx={{ fontSize: 40, mb: 1 }} />
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
-          {error}
-        </Typography>
-        <Button 
-          variant="outlined" 
-          size="small" 
-          onClick={() => window.location.reload()}
-          startIcon={<LocationIcon />}
-        >
-          다시 시도
-        </Button>
-      </Box>
-    );
-  }
+    let animationFrameId = null;
+    const handleResize = () => {
+      if (!map) return;
+      // 리사이즈 스로틀링: 다음 프레임에 반영
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        try {
+          map.relayout();
+        } catch (_) {}
+      });
+    };
 
-  // 지도가 성공적으로 로드되었을 때
+    const observer = new ResizeObserver(handleResize);
+    try {
+      observer.observe(mapContainer.current);
+    } catch (_) {}
+
+    // 윈도우 리사이즈에도 반응
+    window.addEventListener('resize', handleResize);
+
+    // 초기 보정 한번 수행
+    handleResize();
+
+    return () => {
+      try { observer.disconnect(); } catch (_) {}
+      window.removeEventListener('resize', handleResize);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [map]);
+
+  // 에러가 있어도 지도 컨테이너는 유지하고, 오버레이로 메시지만 표시
+
+  // 지도 컨테이너는 항상 렌더링하고, 로딩 중에는 오버레이를 표시
   return (
-    <Box 
-      ref={mapContainer}
-      sx={{ 
-        height, 
-        width, 
-        borderRadius: 1,
-        overflow: 'hidden',
-        ...sx
-      }}
-    />
+    <Box sx={{ position: 'relative', height, width, borderRadius: 1, overflow: 'hidden', ...sx }}>
+      <Box
+        ref={mapContainer}
+        sx={{ position: 'absolute', inset: 0 }}
+      />
+      {loading && (
+        <Box sx={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(245,245,245,0.8)'
+        }}>
+          <CircularProgress size={40} />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            지도를 불러오는 중...
+          </Typography>
+        </Box>
+      )}
+    </Box>
   );
 };
 

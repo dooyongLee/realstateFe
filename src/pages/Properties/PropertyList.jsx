@@ -117,18 +117,6 @@ const PropertyList = () => {
     fetchProperties();
   }, [fetchProperties]);
 
-  const handlePageChange = useCallback((p) => {
-    setPage(p);
-    fetchProperties();
-  }, [fetchProperties]);
-
-  const handlePageSizeChange = useCallback((newPageSize) => {
-    setPageSize(newPageSize);
-    localStorage.setItem("propertiesPageSize", newPageSize);
-    setPage(1);
-    fetchProperties();
-  }, [fetchProperties]);
-
   /**
    * 검색 실행 핸들러
    * 공통 검색 컴포넌트에서 호출되는 검색 함수
@@ -169,42 +157,10 @@ const PropertyList = () => {
     setAlert({ open: true, message: '엑셀 다운로드 기능은 아직 구현되지 않았습니다.', severity: 'info' });
   }, []);
 
-  const handleStatusToggle = useCallback(async (propertyId, currentStatus) => {
-    const property = properties.find(p => p.id === propertyId);
-    if (!property) {
-      setAlert({ open: true, message: '매물 정보를 찾을 수 없습니다.', severity: 'error' });
-      return;
-    }
-    try {
-      const newStatus = currentStatus === 'AVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE';
-      await apiClient.put(`/api/properties/${property.id}/status?status=${newStatus}`);
-      setProperties(prevProperties => 
-        prevProperties.map(p => 
-          p.id === propertyId ? { ...p, status: newStatus } : p
-        )
-      );
-      setPropertiesOrigin(prev =>
-        prev.map(p =>
-          p.id === propertyId ? { ...p, status: newStatus } : p
-        )
-      );
-      setAlert({ open: true, message: `매물이 ${newStatus === 'AVAILABLE' ? '거래가능' : '거래불가'}로 변경되었습니다.`, severity: 'success' });
-    } catch (error) {
-      setAlert({ open: true, message: '매물 상태 변경 중 오류가 발생했습니다.', severity: 'error' });
-    }
-  }, [properties]);
-
   const handleRowClick = useCallback((property) => {
     // 매물 상세페이지로 이동
     navigate(`/properties/detail/${property.id}`);
   }, [navigate]);
-
-  const handleViewDetail = useCallback((property) => {
-    // 상세보기 버튼 클릭 시
-    navigate(`/properties/detail/${property.id}`);
-  }, [navigate]);
-
-
 
   const handleBatchStatus = useCallback(async (status) => {
     if (!selected.length) {

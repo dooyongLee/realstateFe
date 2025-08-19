@@ -34,6 +34,7 @@
 import React, { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { FiList, FiHome, FiSettings, FiUsers, FiCreditCard } from "react-icons/fi";
+import "./Sidebar.css";
 
 /**
  * 사이드바 메뉴 구조 정의
@@ -115,10 +116,10 @@ const Sidebar = ({ open, onClose }) => {
                   <div
                     className={
                       "sidebar-link" +
-                      (openSettings ? " active" : "")
+                      (openSettings ? " active" : "") +
+                      " sidebar-parent"
                     }
                     onClick={() => setOpenSettings((prev) => !prev)}
-                    style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
                   >
                     {item.icon}
                     {item.label}

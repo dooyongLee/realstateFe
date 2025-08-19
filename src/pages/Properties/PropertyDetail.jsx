@@ -247,9 +247,6 @@ const PropertyDetail = () => {
     fetchPropertyDetail();
   }, [fetchPropertyDetail]);
 
-  // 위치정보 아코디언이 열릴 때만 카카오맵을 표시하므로 
-  // 자동으로 showKakaoMap을 설정하는 useEffect는 제거
-
   // 로딩 상태
   if (loading) {
     return (

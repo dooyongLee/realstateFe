@@ -31,60 +31,7 @@
  */
 
 import React from "react";
-
-/**
- * 모달 오버레이 스타일
- * 
- * 모달의 배경 오버레이를 정의하는 스타일 객체입니다.
- * 전체 화면을 덮고 모달을 중앙에 배치하는 역할을 합니다.
- * 
- * 스타일 속성:
- * - position: fixed - 뷰포트 기준 고정 위치
- * - top, left: 0 - 화면 좌상단에 배치
- * - width, height: 100vw, 100vh - 전체 화면 크기
- * - background: rgba(0,0,0,0.3) - 반투명 검은색 배경
- * - display: flex - 플렉스박스 레이아웃
- * - alignItems, justifyContent: center - 수직/수평 중앙 정렬
- * - zIndex: 1000 - 다른 요소들 위에 표시
- * 
- * @type {Object}
- */
-const overlayStyle = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  background: "rgba(0,0,0,0.3)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 1000,
-};
-
-/**
- * 모달 컨테이너 스타일
- * 
- * 모달의 실제 내용을 담는 컨테이너의 스타일을 정의합니다.
- * 흰색 배경, 둥근 모서리, 그림자 효과를 포함합니다.
- * 
- * 스타일 속성:
- * - background: #fff - 흰색 배경
- * - padding: 2rem - 내부 여백
- * - borderRadius: 8 - 둥근 모서리
- * - minWidth, minHeight - 최소 크기 보장
- * - boxShadow - 그림자 효과
- * 
- * @type {Object}
- */
-const modalStyle = {
-  background: "#fff",
-  padding: "2rem",
-  borderRadius: 8,
-  minWidth: 300,
-  minHeight: 100,
-  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-};
+import "./Modal.css";
 
 /**
  * 모달 컴포넌트
@@ -119,13 +66,13 @@ const Modal = ({ isOpen, onClose, children }) => {
   if (!isOpen) return null;
   
   return (
-    <div style={overlayStyle} onClick={onClose}>
+    <div className="app-modal-overlay" onClick={onClose}>
       {/* 
         모달 컨테이너 - 이벤트 버블링 방지
         onClick={e => e.stopPropagation()}로 오버레이 클릭 이벤트가
         상위로 전파되는 것을 막아 모달 내부 클릭 시 닫히지 않도록 함
       */}
-      <div style={modalStyle} onClick={e => e.stopPropagation()}>
+      <div className="app-modal-box" onClick={e => e.stopPropagation()}>
         {children}
       </div>
     </div>
